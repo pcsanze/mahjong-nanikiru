@@ -36,10 +36,11 @@
     background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 22px 18px;
     box-shadow: 0 20px 50px rgba(0,0,0,.35);
   }
-  .hand-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 14px; }
+  .hand-row-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 14px; }
+  .hand-row { display: flex; flex-wrap: nowrap; gap: 6px; justify-content: center; width: max-content; min-width: 100%; padding: 2px 2px 6px; }
   .tile {
     width: 42px; height: 58px; border-radius: 6px; background: #fdfcf8; border: 1px solid rgba(0,0,0,.15);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0;
     box-shadow: 0 4px 10px rgba(0,0,0,.25); cursor: pointer; user-select: none;
     transition: transform .12s ease, box-shadow .12s ease;
   }
@@ -66,6 +67,14 @@
 
   .cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
   @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
+
+  @media (max-width: 480px) {
+    .tile { width: 34px; height: 47px; }
+    .tile .num { font-size: 14px; }
+    .tile .suit { font-size: 7px; }
+    .tile.honor .num { font-size: 15px; }
+    .hand-row { gap: 4px; }
+  }
   .col {
     background: rgba(0,0,0,.22); border: 1px solid var(--line); border-radius: 14px; padding: 14px;
   }
@@ -108,7 +117,7 @@
   </div>
 
   <div class="board">
-    <div class="hand-row" id="handRow"></div>
+    <div class="hand-row-scroll"><div class="hand-row" id="handRow"></div></div>
     <p class="hint" id="hint">牌をタップして捨て牌を選択</p>
 
     <div class="result" id="result" style="display:none">
