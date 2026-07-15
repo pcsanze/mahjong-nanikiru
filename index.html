@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>何切るトレーナー — 牌効率・理想形</title>
+<style>
+  :root {
+    --bg: #0b1512; --panel: #131f1b; --line: rgba(238,211,151,.25);
+    --gold: #e3bd6a; --cream: #f4ead5; --muted: #8fa39b; --danger: #c95d57; --good: #6fae7c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100%; color: var(--cream);
+    background: radial-gradient(circle at 50% -10%, rgba(24,105,79,.22), transparent 40%), linear-gradient(160deg, #060b09, #0b1512 55%, #06100d);
+    font-family: "Noto Sans JP", "Hiragino Sans", system-ui, sans-serif;
+  }
+  .app { width: min(880px, 100%); margin: 0 auto; padding: 22px 16px 60px; }
+  header { text-align: center; margin-bottom: 6px; }
+  header .eyebrow { color: var(--gold); font-size: .68rem; letter-spacing: .22em; font-weight: 800; margin: 0 0 4px; }
+  header h1 { margin: 0; font-size: clamp(1.2rem, 4vw, 1.7rem); letter-spacing: .04em; }
+  .info-bar {
+    display: flex; justify-content: center; align-items: center; gap: 24px; flex-wrap: wrap; margin: 18px 0 22px;
+    font-size: .8rem; color: var(--muted);
+  }
+  .info-bar strong { color: var(--gold); }
+  .dora-box {
+    display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-radius: 14px;
+    background: rgba(227,189,106,.1); border: 1px solid rgba(227,189,106,.4);
+    font-size: .85rem; font-weight: 700; color: var(--cream);
+  }
+  .dora-box .arrow { color: var(--gold); font-size: 1rem; }
+  .dora-box .indicator-tile { display: inline-flex; vertical-align: middle; }
+
+  .board {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 22px 18px;
+    box-shadow: 0 20px 50px rgba(0,0,0,.35);
+  }
+  .hand-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 14px; }
+  .tile {
+    width: 42px; height: 58px; border-radius: 6px; background: #fdfcf8; border: 1px solid rgba(0,0,0,.15);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,.25); cursor: pointer; user-select: none;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .tile:hover:not(.disabled) { transform: translateY(-4px); box-shadow: 0 8px 16px rgba(0,0,0,.3); }
+  .tile .num { font-size: 17px; font-weight: 900; line-height: 1; color: #1c1c1c; }
+  .tile .suit { font-size: 8.5px; color: #999; margin-top: 2px; letter-spacing: .05em; }
+  .tile.pin .num { color: #2b6cb0; }
+  .tile.sou .num { color: #2f855a; }
+  .tile.honor .num { font-size: 19px; color: #a9433f; }
+  .tile.honor.wind .num { color: #333; }
+  .tile.chosen { outline: 3px solid var(--gold); transform: translateY(-6px); }
+  .tile.disabled { cursor: default; opacity: .55; }
+  .tile.mini { width: 26px; height: 36px; }
+  .tile.mini .num { font-size: 11px; }
+  .tile.mini .suit { font-size: 6px; }
+  .tile.mini.honor .num { font-size: 12px; }
+
+  .hint { text-align: center; color: var(--muted); font-size: .78rem; margin-bottom: 6px; }
+
+  .result { margin-top: 22px; }
+  .verdict { text-align: center; font-weight: 800; font-size: 1rem; padding: 10px; border-radius: 10px; margin-bottom: 16px; }
+  .verdict.correct { background: rgba(111,174,124,.15); color: var(--good); }
+  .verdict.wrong { background: rgba(201,93,87,.15); color: var(--danger); }
+
+  .cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
+  .col {
+    background: rgba(0,0,0,.22); border: 1px solid var(--line); border-radius: 14px; padding: 14px;
+  }
+  .col h3 { margin: 0 0 10px; font-size: .82rem; letter-spacing: .05em; color: var(--gold); }
+  .col .discard-tile { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .col .stat-line { font-size: .76rem; color: var(--muted); margin: 4px 0; }
+  .col .stat-line strong { color: var(--cream); font-variant-numeric: tabular-nums; }
+  .ukeire-tiles { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .tag { font-size: .66rem; background: rgba(227,189,106,.14); color: var(--gold); padding: 2px 8px; border-radius: 999px; }
+
+  .stats-bar { text-align: center; margin-top: 20px; color: var(--muted); font-size: .78rem; }
+  .stats-bar strong { color: var(--gold); }
+
+  .next-btn {
+    display: block; margin: 18px auto 0; padding: 12px 32px; border: none; border-radius: 999px;
+    background: linear-gradient(180deg, #16865f, #0d5b40); color: #d5eee5; font-weight: 900;
+    letter-spacing: .06em; font-size: .85rem; cursor: pointer;
+  }
+  .next-btn:hover { filter: brightness(1.08); }
+
+  .disclaimer { text-align: center; font-size: .68rem; color: #667; margin-top: 24px; line-height: 1.7; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <p class="eyebrow">TILE EFFICIENCY TRAINER</p>
+    <h1>何切るトレーナー</h1>
+  </header>
+
+  <div class="info-bar">
+    <span>巡目：<strong id="turnNo">-</strong></span>
+    <div class="dora-box">
+      <span>ドラ表示</span><span id="doraIndicatorTile" class="indicator-tile"></span>
+      <span class="arrow">→</span>
+      <span>ドラ</span><span id="doraTile" class="indicator-tile"></span>
+    </div>
+  </div>
+
+  <div class="board">
+    <div class="hand-row" id="handRow"></div>
+    <p class="hint" id="hint">牌をタップして捨て牌を選択</p>
+
+    <div class="result" id="result" style="display:none">
+      <div class="verdict" id="verdict"></div>
+      <div class="cols">
+        <div class="col">
+          <h3>あなたの選択</h3>
+          <div id="colYou"></div>
+        </div>
+        <div class="col">
+          <h3>高確率系（牌効率）</h3>
+          <div id="colFast"></div>
+        </div>
+        <div class="col">
+          <h3>理想形（想定打点）</h3>
+          <div id="colValue"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-bar">牌効率一致：<strong id="statCorrect">0</strong> / <strong id="statTotal">0</strong></div>
+  <button class="next-btn" id="nextBtn">次の問題</button>
+
+  <p class="disclaimer">
+    シャンテン数・受け入れ枚数は手牌の組み合わせを厳密に計算した確定値。<br>
+    理想形の想定打点は、ドラ・タンヤオ・役牌・混一色/清一色・トイトイ等の主要な条件から算出した目安であり、巡目や場況を加味した正式な期待値計算ではない。
+  </p>
+</div>
+
+<script>
+'use strict';
+
+/* ===================== 牌エンジン ===================== */
+// tile index: 0-8 man1-9 / 9-17 pin1-9 / 18-26 sou1-9 / 27-33 東南西北白發中
+
+const HONOR_NAMES = ['東','南','西','北','白','發','中'];
+
+function tileInfo(idx) {
+  if (idx < 9) return { num: idx + 1, suit: '萬', cls: 'man' };
+  if (idx < 18) return { num: idx - 9 + 1, suit: '筒', cls: 'pin' };
+  if (idx < 27) return { num: idx - 18 + 1, suit: '索', cls: 'sou' };
+  const name = HONOR_NAMES[idx - 27];
+  const isWind = idx <= 30;
+  return { num: name, suit: '', cls: 'honor' + (isWind ? ' wind' : '') };
+}
+
+function tileHTML(idx, extraClass) {
+  const t = tileInfo(idx);
+  return `<div class="tile ${t.cls} ${extraClass || ''}" data-idx="${idx}">
+    <span class="num">${t.num}</span>${t.suit ? `<span class="suit">${t.suit}</span>` : ''}
+  </div>`;
+}
+
+function newWall() {
+  const wall = [];
+  for (let i = 0; i < 34; i++) for (let n = 0; n < 4; n++) wall.push(i);
+  for (let i = wall.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [wall[i], wall[j]] = [wall[j], wall[i]];
+  }
+  return wall;
+}
+
+function countsFromTiles(tiles) {
+  const c = new Array(34).fill(0);
+  for (const t of tiles) c[t]++;
+  return c;
+}
+function tilesFromCounts(counts) {
+  const out = [];
+  for (let i = 0; i < 34; i++) for (let n = 0; n < counts[i]; n++) out.push(i);
+  return out;
+}
+
+/* ---- 通常形シャンテン(再帰探索・全分解を比較) ---- */
+function regularShanten(counts) {
+  let best = 8;
+  function solve(idx, melds, partials, hasPair) {
+    if (idx === 34) {
+      let m = melds, p = partials;
+      if (m + p > 4) p = 4 - m;
+      const s = 8 - m * 2 - p - (hasPair ? 1 : 0);
+      if (s < best) best = s;
+      return;
+    }
+    const c = counts[idx];
+    if (c === 0) { solve(idx + 1, melds, partials, hasPair); return; }
+    if (c >= 3) { counts[idx] -= 3; solve(idx, melds + 1, partials, hasPair); counts[idx] += 3; }
+    const pos = idx % 9;
+    if (idx < 27 && pos <= 6 && counts[idx] > 0 && counts[idx + 1] > 0 && counts[idx + 2] > 0) {
+      counts[idx]--; counts[idx + 1]--; counts[idx + 2]--;
+      solve(idx, melds + 1, partials, hasPair);
+      counts[idx]++; counts[idx + 1]++; counts[idx + 2]++;
+    }
+    if (c >= 2 && !hasPair) { counts[idx] -= 2; solve(idx, melds, partials, true); counts[idx] += 2; }
+    if (c >= 2) { counts[idx] -= 2; solve(idx, melds, partials + 1, hasPair); counts[idx] += 2; }
+    if (idx < 27 && pos <= 7 && counts[idx] > 0 && counts[idx + 1] > 0) {
+      counts[idx]--; counts[idx + 1]--;
+      solve(idx, melds, partials + 1, hasPair);
+      counts[idx]++; counts[idx + 1]++;
+    }
+    if (idx < 27 && pos <= 6 && counts[idx] > 0 && counts[idx + 2] > 0) {
+      counts[idx]--; counts[idx + 2]--;
+      solve(idx, melds, partials + 1, hasPair);
+      counts[idx]++; counts[idx + 2]++;
+    }
+    solve(idx + 1, melds, partials, hasPair);
+  }
+  solve(0, 0, 0, false);
+  return best;
+}
+
+function chiitoiShanten(counts) {
+  let pairs = 0, kinds = 0;
+  for (let i = 0; i < 34; i++) { if (counts[i] > 0) kinds++; if (counts[i] >= 2) pairs++; }
+  pairs = Math.min(pairs, 7);
+  return 6 - pairs + Math.max(0, 7 - kinds);
+}
+
+const KOKUSHI_IDX = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33];
+function kokushiShanten(counts) {
+  let kinds = 0, hasPair = false;
+  for (const i of KOKUSHI_IDX) { if (counts[i] > 0) kinds++; if (counts[i] >= 2) hasPair = true; }
+  return 13 - kinds - (hasPair ? 1 : 0);
+}
+
+function shanten(counts) {
+  return Math.min(regularShanten(counts), chiitoiShanten(counts), kokushiShanten(counts));
+}
+
+/* ---- 受け入れ計算 ---- */
+function ukeireForHand(counts13) {
+  const base = shanten(counts13);
+  const tiles = [];
+  for (let t = 0; t < 34; t++) {
+    if (counts13[t] >= 4) continue;
+    counts13[t]++;
+    const s = shanten(counts13);
+    counts13[t]--;
+    if (s < base) tiles.push({ tile: t, remaining: 4 - counts13[t] });
+  }
+  return { shanten: base, tiles, total: tiles.reduce((a, b) => a + b.remaining, 0) };
+}
+
+/* ---- 打点(理想形)ヒューリスティック ---- */
+function doraFromIndicator(idx) {
+  if (idx < 27) { const start = Math.floor(idx / 9) * 9; return start + (idx % 9 + 1) % 9; }
+  if (idx <= 30) return 27 + (idx - 27 + 1) % 4;
+  return 31 + (idx - 31 + 1) % 3;
+}
+
+function valueScore(counts13, doraIdx) {
+  let score = 1; // リーチ前提
+  const tags = [];
+  const doraCount = counts13[doraIdx] || 0;
+  if (doraCount > 0) { score += doraCount; tags.push(`ドラ${doraCount}`); }
+
+  let hasTerminalOrHonor = false;
+  for (let i = 0; i < 34; i++) {
+    if (counts13[i] <= 0) continue;
+    if (i >= 27) { hasTerminalOrHonor = true; break; }
+    const pos = i % 9;
+    if (pos === 0 || pos === 8) { hasTerminalOrHonor = true; break; }
+  }
+  if (!hasTerminalOrHonor) { score += 1; tags.push('タンヤオ'); }
+
+  for (const i of [31, 32, 33]) {
+    if (counts13[i] >= 3) { score += 1; tags.push(`役牌(${HONOR_NAMES[i - 27]})`); }
+    else if (counts13[i] === 2) { score += 0.3; }
+  }
+
+  const suitTotals = [0, 0, 0];
+  let honorTotal = 0;
+  for (let i = 0; i < 34; i++) {
+    if (counts13[i] <= 0) continue;
+    if (i < 27) suitTotals[Math.floor(i / 9)] += counts13[i];
+    else honorTotal += counts13[i];
+  }
+  const usedSuits = suitTotals.filter((c) => c > 0).length;
+  if (usedSuits <= 1) {
+    if (honorTotal > 0) { score += 2; tags.push('混一色'); }
+    else { score += 5; tags.push('清一色'); }
+  }
+
+  let pairLikeTypes = 0;
+  for (let i = 0; i < 34; i++) if (counts13[i] >= 2) pairLikeTypes++;
+  if (pairLikeTypes >= 3) { score += 1.5; tags.push('トイトイ'); }
+
+  return { score: Math.round(score * 10) / 10, tags };
+}
+
+/* ---- 14枚から捨て牌候補を全評価 ---- */
+function evaluateDiscards(counts14, doraIdx) {
+  const results = [];
+  for (let t = 0; t < 34; t++) {
+    if (counts14[t] <= 0) continue;
+    counts14[t]--;
+    const uk = ukeireForHand(counts14);
+    const val = valueScore(counts14, doraIdx);
+    counts14[t]++;
+    results.push({ tile: t, shanten: uk.shanten, ukeireTotal: uk.total, ukeireTiles: uk.tiles, value: val.score, tags: val.tags });
+  }
+  results.sort((a, b) => a.shanten - b.shanten || b.ukeireTotal - a.ukeireTotal);
+  return results;
+}
+
+function pickFastest(results) { return results[0]; }
+function pickIdeal(results) {
+  const bestShanten = Math.min(...results.map((r) => r.shanten));
+  const candidates = results.filter((r) => r.shanten <= bestShanten + 1);
+  candidates.sort((a, b) => b.value - a.value || a.shanten - b.shanten || b.ukeireTotal - a.ukeireTotal);
+  return candidates[0];
+}
+
+/* ===================== 手牌生成(簡易ボット打ち回し) ===================== */
+function hasIsolatedHonor(hand) {
+  const counts = countsFromTiles(hand);
+  for (let i = 27; i < 34; i++) if (counts[i] === 1) return true;
+  return false;
+}
+
+function generateQuestion() {
+  let q;
+  let attempts = 0;
+  do {
+    q = buildQuestion();
+    const counts14 = countsFromTiles(q.hand);
+    q.results = evaluateDiscards(counts14, q.doraIdx);
+    q.fastest = pickFastest(q.results);
+    q.ideal = pickIdeal(q.results);
+    attempts++;
+    var rejectedTrivial = hasIsolatedHonor(q.hand) || q.fastest.tile === q.ideal.tile;
+  } while (rejectedTrivial && attempts < 150);
+  return q;
+}
+
+function buildQuestion() {
+  const wall = newWall();
+  const doraIndicator = wall.pop();
+  const doraIdx = doraFromIndicator(doraIndicator);
+
+  let hand = wall.splice(0, 13);
+  const turns = 4 + Math.floor(Math.random() * 7); // 4〜10巡
+
+  for (let turn = 0; turn < turns; turn++) {
+    hand.push(wall.pop());
+    const counts = countsFromTiles(hand);
+    const results = evaluateDiscards(counts, doraIdx);
+    const poolSize = Math.random() < 0.7 ? 1 : Math.min(3, results.length);
+    const pick = results[Math.floor(Math.random() * poolSize)];
+    hand.splice(hand.indexOf(pick.tile), 1);
+  }
+  hand.push(wall.pop());
+  hand.sort((a, b) => a - b);
+
+  return { hand, doraIndicator, doraIdx, turnNo: turns + 1 };
+}
+
+/* ===================== UI ===================== */
+const $ = (id) => document.getElementById(id);
+let current = null;
+let answered = false;
+let stats = { correct: 0, total: 0 };
+
+function renderQuestion() {
+  current = generateQuestion();
+  answered = false;
+  $('result').style.display = 'none';
+  $('hint').style.display = '';
+  $('turnNo').textContent = current.turnNo;
+  $('doraIndicatorTile').innerHTML = tileHTML(current.doraIndicator);
+  $('doraTile').innerHTML = tileHTML(current.doraIdx);
+
+  $('handRow').innerHTML = current.hand.map((t) => tileHTML(t)).join('');
+  document.querySelectorAll('#handRow .tile').forEach((el) => {
+    el.addEventListener('click', () => onDiscard(+el.dataset.idx, el));
+  });
+}
+
+function tilesRow(tiles, capacity) {
+  const shown = tiles.slice(0, capacity || tiles.length);
+  return shown.map((x) => `<span style="display:inline-flex; margin-right:2px;">${tileHTML(x.tile ?? x, 'mini')}<sub style="font-size:9px;color:#8fa39b;align-self:flex-end;">${x.remaining ? x.remaining : ''}</sub></span>`).join('');
+}
+
+function colHTML(discardTile, r, showValue) {
+  let html = `<div class="discard-tile">${tileHTML(discardTile, 'mini')}<span style="font-size:.72rem;color:var(--muted);">を切る</span></div>`;
+  html += `<div class="stat-line">シャンテン数：<strong>${r.shanten < 0 ? '和了' : r.shanten}</strong></div>`;
+  html += `<div class="stat-line">受け入れ：<strong>${r.ukeireTotal}枚</strong>（${r.ukeireTiles.length}種）</div>`;
+  html += `<div class="ukeire-tiles">${tilesRow(r.ukeireTiles, 9)}</div>`;
+  if (showValue) {
+    html += `<div class="stat-line" style="margin-top:8px;">想定飜数：<strong>${r.value}</strong>（目安）</div>`;
+    html += `<div class="tags">${r.tags.map((t) => `<span class="tag">${t}</span>`).join('')}</div>`;
+  }
+  return html;
+}
+
+function onDiscard(tile, el) {
+  if (answered) return;
+  answered = true;
+  document.querySelectorAll('#handRow .tile').forEach((t) => t.classList.add('disabled'));
+  el.classList.add('chosen');
+  $('hint').style.display = 'none';
+
+  const results = current.results;
+  const fastest = current.fastest;
+  const ideal = current.ideal;
+  const yours = results.find((r) => r.tile === tile);
+
+  const tiedTiles = results.filter((r) => r.shanten === fastest.shanten && r.ukeireTotal === fastest.ukeireTotal);
+  const isCorrect = yours.shanten === fastest.shanten && yours.ukeireTotal === fastest.ukeireTotal;
+
+  stats.total++;
+  if (isCorrect) stats.correct++;
+  $('statCorrect').textContent = stats.correct;
+  $('statTotal').textContent = stats.total;
+
+  $('verdict').className = 'verdict ' + (isCorrect ? 'correct' : 'wrong');
+  if (isCorrect) {
+    $('verdict').textContent = tiedTiles.length > 1
+      ? `牌効率的に最速の一打（同着で最速の牌が他に${tiedTiles.length - 1}種ある）`
+      : '牌効率的に最速の一打';
+  } else {
+    $('verdict').textContent = `牌効率としては最速ではない（受け入れ差 ${fastest.ukeireTotal - yours.ukeireTotal}枚）`;
+  }
+
+  $('colYou').innerHTML = colHTML(yours.tile, yours, false);
+  $('colFast').innerHTML = colHTML(fastest.tile, fastest, false);
+  $('colValue').innerHTML = colHTML(ideal.tile, ideal, true);
+
+  $('result').style.display = '';
+}
+
+$('nextBtn').addEventListener('click', renderQuestion);
+renderQuestion();
+</script>
+</body>
+</html>
