@@ -39,24 +39,17 @@
   .hand-row-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 14px; }
   .hand-row { display: flex; flex-wrap: nowrap; gap: 6px; justify-content: center; width: max-content; min-width: 100%; padding: 2px 2px 6px; }
   .tile {
-    width: 42px; height: 58px; border-radius: 6px; background: #fdfcf8; border: 1px solid rgba(0,0,0,.15);
-    display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 42px; height: 56px; border-radius: 6px; flex-shrink: 0;
+    background-repeat: no-repeat, no-repeat;
+    background-size: 100% 100%, 100% 100%;
+    background-position: center, center;
     box-shadow: 0 4px 10px rgba(0,0,0,.25); cursor: pointer; user-select: none;
     transition: transform .12s ease, box-shadow .12s ease;
   }
   .tile:hover:not(.disabled) { transform: translateY(-4px); box-shadow: 0 8px 16px rgba(0,0,0,.3); }
-  .tile .num { font-size: 17px; font-weight: 900; line-height: 1; color: #1c1c1c; }
-  .tile .suit { font-size: 8.5px; color: #999; margin-top: 2px; letter-spacing: .05em; }
-  .tile.pin .num { color: #2b6cb0; }
-  .tile.sou .num { color: #2f855a; }
-  .tile.honor .num { font-size: 19px; color: #a9433f; }
-  .tile.honor.wind .num { color: #333; }
-  .tile.chosen { outline: 3px solid var(--gold); transform: translateY(-6px); }
+  .tile.chosen { outline: 3px solid var(--gold); transform: translateY(-6px); border-radius: 8px; }
   .tile.disabled { cursor: default; opacity: .55; }
-  .tile.mini { width: 26px; height: 36px; }
-  .tile.mini .num { font-size: 11px; }
-  .tile.mini .suit { font-size: 6px; }
-  .tile.mini.honor .num { font-size: 12px; }
+  .tile.mini { width: 26px; height: 35px; box-shadow: none; border-radius: 4px; }
 
   .hint { text-align: center; color: var(--muted); font-size: .78rem; margin-bottom: 6px; }
 
@@ -69,10 +62,7 @@
   @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
 
   @media (max-width: 480px) {
-    .tile { width: 34px; height: 47px; }
-    .tile .num { font-size: 14px; }
-    .tile .suit { font-size: 7px; }
-    .tile.honor .num { font-size: 15px; }
+    .tile { width: 34px; height: 45px; }
     .hand-row { gap: 4px; }
   }
   .col {
@@ -156,20 +146,19 @@
 
 const HONOR_NAMES = ['東','南','西','北','白','發','中'];
 
-function tileInfo(idx) {
-  if (idx < 9) return { num: idx + 1, suit: '萬', cls: 'man' };
-  if (idx < 18) return { num: idx - 9 + 1, suit: '筒', cls: 'pin' };
-  if (idx < 27) return { num: idx - 18 + 1, suit: '索', cls: 'sou' };
-  const name = HONOR_NAMES[idx - 27];
-  const isWind = idx <= 30;
-  return { num: name, suit: '', cls: 'honor' + (isWind ? ' wind' : '') };
+const HONOR_FACE_FILES = ['Ton', 'Nan', 'Shaa', 'Pei', 'Haku', 'Hatsu', 'Chun']; // matches HONOR_NAMES order
+
+function tileFaceFile(idx) {
+  if (idx < 9) return 'Man' + (idx + 1);
+  if (idx < 18) return 'Pin' + (idx - 9 + 1);
+  if (idx < 27) return 'Sou' + (idx - 18 + 1);
+  return HONOR_FACE_FILES[idx - 27];
 }
 
 function tileHTML(idx, extraClass) {
-  const t = tileInfo(idx);
-  return `<div class="tile ${t.cls} ${extraClass || ''}" data-idx="${idx}">
-    <span class="num">${t.num}</span>${t.suit ? `<span class="suit">${t.suit}</span>` : ''}
-  </div>`;
+  const face = tileFaceFile(idx);
+  const bg = `url('assets/tiles/${face}.svg'), url('assets/tiles/Front.svg')`;
+  return `<div class="tile ${extraClass || ''}" data-idx="${idx}" style="background-image:${bg};"></div>`;
 }
 
 function newWall() {
