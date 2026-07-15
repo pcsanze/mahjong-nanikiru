@@ -350,7 +350,7 @@ function generateQuestion() {
     q.fastest = pickFastest(q.results);
     q.ideal = pickIdeal(q.results);
     attempts++;
-    var rejectedTrivial = hasIsolatedHonor(q.hand) || q.fastest.tile === q.ideal.tile;
+    var rejectedTrivial = hasIsolatedHonor(q.hand) || q.fastest.tile === q.ideal.tile || q.fastest.shanten <= 0;
   } while (rejectedTrivial && attempts < 150);
   return q;
 }
