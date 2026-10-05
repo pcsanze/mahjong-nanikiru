@@ -49,8 +49,10 @@
     background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 22px 18px;
     box-shadow: 0 20px 50px rgba(0,0,0,.35);
   }
-  .hand-row-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 14px; }
-  .hand-row { display: flex; flex-wrap: nowrap; gap: 6px; justify-content: center; width: max-content; min-width: 100%; padding: 2px 2px 6px; }
+  .hand-row-scroll { margin-bottom: 14px; }
+  .hand-row { display: grid; gap: 3px; width: 100%; padding: 2px 2px 6px; }
+  #handRow { grid-template-columns: repeat(14, minmax(0, 1fr)); }
+  #shantenHandRow { grid-template-columns: repeat(13, minmax(0, 1fr)); }
   .tile {
     width: 42px; height: 56px; border-radius: 6px; flex-shrink: 0;
     background-repeat: no-repeat, no-repeat;
@@ -59,6 +61,7 @@
     box-shadow: 0 4px 10px rgba(0,0,0,.25); cursor: pointer; user-select: none;
     transition: transform .12s ease, box-shadow .12s ease;
   }
+  .hand-row .tile { width: 100%; max-width: 46px; height: auto; aspect-ratio: 42 / 56; justify-self: center; }
   .tile:hover:not(.disabled) { transform: translateY(-4px); box-shadow: 0 8px 16px rgba(0,0,0,.3); }
   .tile.chosen { outline: 3px solid var(--gold); transform: translateY(-6px); border-radius: 8px; }
   .tile.disabled { cursor: default; opacity: .55; }
@@ -76,8 +79,7 @@
   @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
 
   @media (max-width: 480px) {
-    .tile { width: 34px; height: 45px; }
-    .hand-row { gap: 4px; }
+    .dora-box .tile { width: 34px; height: 45px; }
   }
   .col {
     background: rgba(0,0,0,.22); border: 1px solid var(--line); border-radius: 14px; padding: 14px;
@@ -127,6 +129,24 @@
   .score-tier { text-align: center; font-size: .78rem; color: var(--gold); font-weight: 800; margin: -6px 0 12px; letter-spacing: .05em; }
 
   .disclaimer { text-align: center; font-size: .68rem; color: #667; margin-top: 24px; line-height: 1.7; }
+
+  @media (max-width: 480px) {
+    .app { padding: 12px 10px 24px; }
+    header { margin-bottom: 2px; }
+    header h1 { font-size: 1.1rem; }
+    .tabs { margin: 10px 0 12px; gap: 6px; }
+    .tab-btn { padding: 7px 14px; font-size: .74rem; }
+    .info-bar { margin-bottom: 12px; gap: 14px; }
+    .board { padding: 14px 10px; }
+    .hint { font-size: .72rem; }
+    .answer-grid { margin: 14px 0 2px; gap: 6px; }
+    .answer-btn { padding: 8px 10px; font-size: .76rem; min-width: 48px; }
+    .stats-bar { margin-top: 12px; }
+    .next-btn { margin-top: 12px; padding: 10px 26px; }
+    .disclaimer { margin-top: 12px; font-size: .62rem; }
+    .score-badges { margin-bottom: 12px; gap: 6px; }
+    .score-badge { padding: 7px 12px; min-width: 70px; font-size: .78rem; }
+  }
 </style>
 </head>
 <body>
