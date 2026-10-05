@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>麻雀トレーナー — 何切る・シャンテン数</title>
+<title>麻雀トレーナー — 何切る・シャンテン数・点数計算</title>
 <style>
   :root {
     --bg: #0b1512; --panel: #131f1b; --line: rgba(238,211,151,.25);
@@ -115,6 +115,17 @@
   .breakdown .stat-line { font-size: .8rem; color: var(--muted); margin: 5px 0; }
   .breakdown .stat-line strong { color: var(--cream); }
 
+  .score-badges { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+  .score-badge {
+    padding: 10px 18px; border-radius: 14px; background: rgba(227,189,106,.1);
+    border: 1px solid rgba(227,189,106,.4); font-size: .85rem; font-weight: 700; color: var(--cream);
+    text-align: center; min-width: 90px;
+  }
+  .score-badge .k { display: block; font-size: .64rem; color: var(--muted); font-weight: 600; letter-spacing: .06em; margin-bottom: 2px; }
+  .score-badge .v { color: var(--gold); }
+  .answer-btn.score-btn { min-width: 110px; font-size: .95rem; font-variant-numeric: tabular-nums; }
+  .score-tier { text-align: center; font-size: .78rem; color: var(--gold); font-weight: 800; margin: -6px 0 12px; letter-spacing: .05em; }
+
   .disclaimer { text-align: center; font-size: .68rem; color: #667; margin-top: 24px; line-height: 1.7; }
 </style>
 </head>
@@ -129,6 +140,7 @@
   <div class="tabs">
     <button class="tab-btn active" data-mode="nikikiru">何切るクイズ</button>
     <button class="tab-btn" data-mode="shanten">シャンテン数クイズ</button>
+    <button class="tab-btn" data-mode="score">点数計算クイズ</button>
   </div>
 
   <div class="view active" id="view-nikikiru">
@@ -192,6 +204,28 @@
 
     <p class="disclaimer">
       シャンテン数は、通常形・七対子・国士無双の3形を全て比較し、最も少ない向聴数を厳密な組み合わせ探索で求めた確定値。
+    </p>
+  </div>
+
+  <div class="view" id="view-score">
+    <div class="board">
+      <div class="score-badges" id="scoreBadges"></div>
+      <p class="hint" id="scoreHint">何点？</p>
+
+      <div class="answer-grid" id="scoreAnswerGrid"></div>
+
+      <div class="result" id="scoreResult" style="display:none">
+        <div class="verdict" id="scoreVerdict"></div>
+        <div class="score-tier" id="scoreTier"></div>
+        <div class="breakdown" id="scoreBreakdown"></div>
+      </div>
+    </div>
+
+    <div class="stats-bar">正解：<strong id="scoreStatCorrect">0</strong> / <strong id="scoreStatTotal">0</strong></div>
+    <button class="next-btn" id="scoreNextBtn">次の問題</button>
+
+    <p class="disclaimer">
+      点数は「符×2^(2+飜)」を基準点とし2,000点で頭打ち(5飜以上は飜数に応じた満貫〜役満の固定点)、ロンは子4倍/親6倍、ツモは子が親に2倍・子同士に1倍を払う標準ルールで計算。100点未満は切り上げ。本場・積み棒は考慮していません。
     </p>
   </div>
 </div>
@@ -584,6 +618,149 @@ function onShantenAnswer(guess, btn) {
   $('shantenResult').style.display = '';
 }
 
+/* ===================== UI: 点数計算クイズ ===================== */
+
+// 符・飜から基準点(符x2^(2+飜)、2000点で頭打ち)を求める。5飜以上は符を使わず固定の階級で扱う。
+function tierBase(fu, han) {
+  if (han >= 13) return { base: 8000, label: '役満' };
+  if (han >= 11) return { base: 6000, label: '三倍満' };
+  if (han >= 8) return { base: 4000, label: '倍満' };
+  if (han >= 6) return { base: 3000, label: '跳満' };
+  if (han === 5) return { base: 2000, label: '満貫' };
+  const raw = fu * Math.pow(2, 2 + han);
+  const base = Math.min(raw, 2000);
+  return { base, label: base >= 2000 ? '満貫' : null };
+}
+
+function roundUp100(n) { return Math.ceil(n / 100) * 100; }
+
+function computeScore(fu, han, isDealer, isTsumo) {
+  const { base, label } = tierBase(fu, han);
+  let total, breakdown;
+  if (!isTsumo) {
+    total = roundUp100(base * (isDealer ? 6 : 4));
+    breakdown = [{ text: `放銃者が${total.toLocaleString()}点を支払う` }];
+  } else if (isDealer) {
+    const each = roundUp100(base * 2);
+    total = each * 3;
+    breakdown = [{ text: `子3人が${each.toLocaleString()}点ずつ支払う（合計${total.toLocaleString()}点）` }];
+  } else {
+    const dealerPay = roundUp100(base * 2);
+    const otherPay = roundUp100(base * 1);
+    total = dealerPay + otherPay * 2;
+    breakdown = [{ text: `親が${dealerPay.toLocaleString()}点、子2人が${otherPay.toLocaleString()}点ずつ支払う（合計${total.toLocaleString()}点）` }];
+  }
+  return { total, label, breakdown };
+}
+
+function generateScoreQuestion() {
+  let han, fu;
+  if (Math.random() < 0.7) {
+    han = 1 + Math.floor(Math.random() * 4); // 1〜4飜
+    const fuPool = [20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 110];
+    fu = fuPool[Math.floor(Math.random() * fuPool.length)];
+    if (fu === 25) han = Math.max(han, 2); // 七対子は25符で2飜以上
+  } else {
+    const hanPool = [5, 5, 5, 6, 6, 7, 7, 8, 9, 10, 11, 12, 13];
+    han = hanPool[Math.floor(Math.random() * hanPool.length)];
+    fu = null;
+  }
+  const isDealer = Math.random() < 0.5;
+  let isTsumo = Math.random() < 0.5;
+  if (fu === 20) isTsumo = true; // 20符はピンフツモのみ
+
+  const effectiveFu = fu || 0;
+  const correct = computeScore(effectiveFu, han, isDealer, isTsumo);
+
+  const altHan = (fu && han <= 4) ? (han === 4 ? han - 1 : han + 1) : (han <= 5 ? han + 1 : han - 1);
+  const decoyTotals = [
+    computeScore(effectiveFu, han, !isDealer, isTsumo).total,
+    computeScore(effectiveFu, han, isDealer, !isTsumo).total,
+    computeScore(effectiveFu, altHan, isDealer, isTsumo).total,
+  ];
+
+  const seen = new Set([correct.total]);
+  const choices = [correct.total];
+  for (const v of decoyTotals) {
+    if (!seen.has(v)) { seen.add(v); choices.push(v); }
+  }
+  let guard = 0;
+  while (choices.length < 4 && guard < 30) {
+    guard++;
+    const pad = correct.total + (guard % 2 === 0 ? 1 : -1) * 100 * Math.ceil(guard / 2);
+    if (pad > 0 && !seen.has(pad)) { seen.add(pad); choices.push(pad); }
+  }
+  for (let i = choices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [choices[i], choices[j]] = [choices[j], choices[i]];
+  }
+
+  return { fu, han, isDealer, isTsumo, correct, choices };
+}
+
+let scoreCurrent = null;
+let scoreAnswered = false;
+let scoreStats = { correct: 0, total: 0 };
+
+function renderScoreQuestion() {
+  scoreCurrent = generateScoreQuestion();
+  scoreAnswered = false;
+  const c = scoreCurrent;
+  $('scoreResult').style.display = 'none';
+  $('scoreHint').style.display = '';
+
+  const fuBadge = c.fu
+    ? `<div class="score-badge"><span class="k">符</span><span class="v">${c.fu}符</span></div>`
+    : '';
+  $('scoreBadges').innerHTML = `
+    ${fuBadge}
+    <div class="score-badge"><span class="k">飜</span><span class="v">${c.han}飜</span></div>
+    <div class="score-badge"><span class="k">役割</span><span class="v">${c.isDealer ? '親' : '子'}</span></div>
+    <div class="score-badge"><span class="k">和了方法</span><span class="v">${c.isTsumo ? 'ツモ' : 'ロン'}</span></div>
+  `;
+
+  const grid = $('scoreAnswerGrid');
+  grid.innerHTML = '';
+  c.choices.forEach((val) => {
+    const b = document.createElement('button');
+    b.className = 'answer-btn score-btn';
+    b.dataset.val = val;
+    b.textContent = val.toLocaleString() + '点';
+    b.addEventListener('click', () => onScoreAnswer(val, b));
+    grid.appendChild(b);
+  });
+}
+
+function onScoreAnswer(guess, btn) {
+  if (scoreAnswered) return;
+  scoreAnswered = true;
+  $('scoreHint').style.display = 'none';
+
+  const c = scoreCurrent;
+  const isCorrect = guess === c.correct.total;
+
+  scoreStats.total++;
+  if (isCorrect) scoreStats.correct++;
+  $('scoreStatCorrect').textContent = scoreStats.correct;
+  $('scoreStatTotal').textContent = scoreStats.total;
+
+  document.querySelectorAll('#scoreAnswerGrid .answer-btn').forEach((b) => {
+    b.disabled = true;
+    if (Number(b.dataset.val) === c.correct.total) b.classList.add('correct-answer');
+    if (b === btn && !isCorrect) b.classList.add('wrong-pick');
+  });
+
+  $('scoreVerdict').className = 'verdict ' + (isCorrect ? 'correct' : 'wrong');
+  $('scoreVerdict').textContent = isCorrect
+    ? `正解！ ${c.correct.total.toLocaleString()}点`
+    : `不正解（正解は${c.correct.total.toLocaleString()}点）`;
+
+  $('scoreTier').textContent = c.correct.label ? c.correct.label : '';
+  $('scoreBreakdown').innerHTML = c.correct.breakdown.map((b) => `<div class="stat-line">${b.text}</div>`).join('');
+
+  $('scoreResult').style.display = '';
+}
+
 /* ===================== タブ切替 ===================== */
 document.querySelectorAll('.tab-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -597,9 +774,11 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
 /* ===================== 初期化 ===================== */
 $('nextBtn').addEventListener('click', renderQuestion);
 $('shantenNextBtn').addEventListener('click', renderShantenQuestion);
+$('scoreNextBtn').addEventListener('click', renderScoreQuestion);
 buildAnswerButtons();
 renderQuestion();
 renderShantenQuestion();
+renderScoreQuestion();
 </script>
 </body>
 </html>
