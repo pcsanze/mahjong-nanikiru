@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>何切るトレーナー — 牌効率・理想形</title>
+<title>麻雀トレーナー — 何切る・シャンテン数</title>
 <style>
   :root {
     --bg: #0b1512; --panel: #131f1b; --line: rgba(238,211,151,.25);
@@ -19,8 +19,21 @@
   header { text-align: center; margin-bottom: 6px; }
   header .eyebrow { color: var(--gold); font-size: .68rem; letter-spacing: .22em; font-weight: 800; margin: 0 0 4px; }
   header h1 { margin: 0; font-size: clamp(1.2rem, 4vw, 1.7rem); letter-spacing: .04em; }
+
+  .tabs { display: flex; justify-content: center; gap: 10px; margin: 18px 0 20px; flex-wrap: wrap; }
+  .tab-btn {
+    padding: 10px 22px; border-radius: 999px; border: 1px solid var(--line);
+    background: rgba(0,0,0,.2); color: var(--muted); font-weight: 800; font-size: .8rem;
+    letter-spacing: .04em; cursor: pointer; transition: all .15s ease;
+  }
+  .tab-btn.active { background: linear-gradient(180deg, #16865f, #0d5b40); color: #d5eee5; border-color: transparent; }
+  .tab-btn:hover:not(.active) { border-color: var(--gold); color: var(--cream); }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
   .info-bar {
-    display: flex; justify-content: center; align-items: center; gap: 24px; flex-wrap: wrap; margin: 18px 0 22px;
+    display: flex; justify-content: center; align-items: center; gap: 24px; flex-wrap: wrap; margin: 0 0 22px;
     font-size: .8rem; color: var(--muted);
   }
   .info-bar strong { color: var(--gold); }
@@ -49,6 +62,7 @@
   .tile:hover:not(.disabled) { transform: translateY(-4px); box-shadow: 0 8px 16px rgba(0,0,0,.3); }
   .tile.chosen { outline: 3px solid var(--gold); transform: translateY(-6px); border-radius: 8px; }
   .tile.disabled { cursor: default; opacity: .55; }
+  .tile.static { cursor: default; }
   .tile.mini { width: 26px; height: 35px; box-shadow: none; border-radius: 4px; }
 
   .hint { text-align: center; color: var(--muted); font-size: .78rem; margin-bottom: 6px; }
@@ -86,6 +100,21 @@
   }
   .next-btn:hover { filter: brightness(1.08); }
 
+  .answer-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 20px 0 4px; }
+  .answer-btn {
+    min-width: 58px; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--line);
+    background: rgba(0,0,0,.22); color: var(--cream); font-weight: 800; font-size: .82rem;
+    letter-spacing: .02em; cursor: pointer; transition: all .12s ease;
+  }
+  .answer-btn:hover:not(:disabled) { border-color: var(--gold); transform: translateY(-2px); }
+  .answer-btn:disabled { cursor: default; }
+  .answer-btn.correct-answer { outline: 2px solid var(--good); background: rgba(111,174,124,.18); }
+  .answer-btn.wrong-pick { outline: 2px solid var(--danger); background: rgba(201,93,87,.18); }
+
+  .breakdown { margin-top: 16px; }
+  .breakdown .stat-line { font-size: .8rem; color: var(--muted); margin: 5px 0; }
+  .breakdown .stat-line strong { color: var(--cream); }
+
   .disclaimer { text-align: center; font-size: .68rem; color: #667; margin-top: 24px; line-height: 1.7; }
 </style>
 </head>
@@ -93,49 +122,78 @@
 
 <div class="app">
   <header>
-    <p class="eyebrow">TILE EFFICIENCY TRAINER</p>
-    <h1>何切るトレーナー</h1>
+    <p class="eyebrow">MAHJONG TRAINER</p>
+    <h1>麻雀トレーナー</h1>
   </header>
 
-  <div class="info-bar">
-    <span>巡目：<strong id="turnNo">-</strong></span>
-    <div class="dora-box">
-      <span>ドラ表示</span><span id="doraIndicatorTile" class="indicator-tile"></span>
-      <span class="arrow">→</span>
-      <span>ドラ</span><span id="doraTile" class="indicator-tile"></span>
-    </div>
+  <div class="tabs">
+    <button class="tab-btn active" data-mode="nikikiru">何切るクイズ</button>
+    <button class="tab-btn" data-mode="shanten">シャンテン数クイズ</button>
   </div>
 
-  <div class="board">
-    <div class="hand-row-scroll"><div class="hand-row" id="handRow"></div></div>
-    <p class="hint" id="hint">牌をタップして捨て牌を選択</p>
+  <div class="view active" id="view-nikikiru">
+    <div class="info-bar">
+      <span>巡目：<strong id="turnNo">-</strong></span>
+      <div class="dora-box">
+        <span>ドラ表示</span><span id="doraIndicatorTile" class="indicator-tile"></span>
+        <span class="arrow">→</span>
+        <span>ドラ</span><span id="doraTile" class="indicator-tile"></span>
+      </div>
+    </div>
 
-    <div class="result" id="result" style="display:none">
-      <div class="verdict" id="verdict"></div>
-      <div class="cols">
-        <div class="col">
-          <h3>あなたの選択</h3>
-          <div id="colYou"></div>
-        </div>
-        <div class="col">
-          <h3>高確率系（牌効率）</h3>
-          <div id="colFast"></div>
-        </div>
-        <div class="col">
-          <h3>理想形（想定打点）</h3>
-          <div id="colValue"></div>
+    <div class="board">
+      <div class="hand-row-scroll"><div class="hand-row" id="handRow"></div></div>
+      <p class="hint" id="hint">牌をタップして捨て牌を選択</p>
+
+      <div class="result" id="result" style="display:none">
+        <div class="verdict" id="verdict"></div>
+        <div class="cols">
+          <div class="col">
+            <h3>あなたの選択</h3>
+            <div id="colYou"></div>
+          </div>
+          <div class="col">
+            <h3>高確率系（牌効率）</h3>
+            <div id="colFast"></div>
+          </div>
+          <div class="col">
+            <h3>理想形（想定打点）</h3>
+            <div id="colValue"></div>
+          </div>
         </div>
       </div>
     </div>
+
+    <div class="stats-bar">牌効率一致：<strong id="statCorrect">0</strong> / <strong id="statTotal">0</strong></div>
+    <button class="next-btn" id="nextBtn">次の問題</button>
+
+    <p class="disclaimer">
+      シャンテン数・受け入れ枚数は手牌の組み合わせを厳密に計算した確定値。<br>
+      理想形の想定打点は、ドラ・タンヤオ・役牌・混一色/清一色・トイトイ等の主要な条件から算出した目安であり、巡目や場況を加味した正式な期待値計算ではない。
+    </p>
   </div>
 
-  <div class="stats-bar">牌効率一致：<strong id="statCorrect">0</strong> / <strong id="statTotal">0</strong></div>
-  <button class="next-btn" id="nextBtn">次の問題</button>
+  <div class="view" id="view-shanten">
+    <div class="board">
+      <div class="hand-row-scroll"><div class="hand-row" id="shantenHandRow"></div></div>
+      <p class="hint" id="shantenHint">この13枚のシャンテン数は？</p>
 
-  <p class="disclaimer">
-    シャンテン数・受け入れ枚数は手牌の組み合わせを厳密に計算した確定値。<br>
-    理想形の想定打点は、ドラ・タンヤオ・役牌・混一色/清一色・トイトイ等の主要な条件から算出した目安であり、巡目や場況を加味した正式な期待値計算ではない。
-  </p>
+      <div class="answer-grid" id="shantenAnswerGrid"></div>
+
+      <div class="result" id="shantenResult" style="display:none">
+        <div class="verdict" id="shantenVerdict"></div>
+        <div class="breakdown" id="shantenBreakdown"></div>
+        <div class="breakdown" id="shantenUkeire"></div>
+      </div>
+    </div>
+
+    <div class="stats-bar">正解：<strong id="shantenStatCorrect">0</strong> / <strong id="shantenStatTotal">0</strong></div>
+    <button class="next-btn" id="shantenNextBtn">次の問題</button>
+
+    <p class="disclaimer">
+      シャンテン数は、通常形・七対子・国士無双の3形を全て比較し、最も少ない向聴数を厳密な組み合わせ探索で求めた確定値。
+    </p>
+  </div>
 </div>
 
 <script>
@@ -329,11 +387,35 @@ function hasIsolatedHonor(hand) {
   return false;
 }
 
+// ボットが数巡打ち回した結果の手牌(13枚、まだ1枚引いていない状態)を返す。
+// 何切るクイズ・シャンテン数クイズの両方で共有する。
+function simulateHand13(turns) {
+  const wall = newWall();
+  const doraIndicator = wall.pop();
+  const doraIdx = doraFromIndicator(doraIndicator);
+
+  let hand = wall.splice(0, 13);
+  for (let turn = 0; turn < turns; turn++) {
+    hand.push(wall.pop());
+    const counts = countsFromTiles(hand);
+    const results = evaluateDiscards(counts, doraIdx);
+    const poolSize = Math.random() < 0.7 ? 1 : Math.min(3, results.length);
+    const pick = results[Math.floor(Math.random() * poolSize)];
+    hand.splice(hand.indexOf(pick.tile), 1);
+  }
+  hand.sort((a, b) => a - b);
+  return { hand, wall, doraIndicator, doraIdx };
+}
+
 function generateQuestion() {
   let q;
   let attempts = 0;
   do {
-    q = buildQuestion();
+    const turns = 4 + Math.floor(Math.random() * 7); // 4〜10巡
+    const sim = simulateHand13(turns);
+    const hand = sim.hand.concat(sim.wall.pop());
+    hand.sort((a, b) => a - b);
+    q = { hand, doraIndicator: sim.doraIndicator, doraIdx: sim.doraIdx, turnNo: turns + 1 };
     const counts14 = countsFromTiles(q.hand);
     q.results = evaluateDiscards(counts14, q.doraIdx);
     q.fastest = pickFastest(q.results);
@@ -344,29 +426,7 @@ function generateQuestion() {
   return q;
 }
 
-function buildQuestion() {
-  const wall = newWall();
-  const doraIndicator = wall.pop();
-  const doraIdx = doraFromIndicator(doraIndicator);
-
-  let hand = wall.splice(0, 13);
-  const turns = 4 + Math.floor(Math.random() * 7); // 4〜10巡
-
-  for (let turn = 0; turn < turns; turn++) {
-    hand.push(wall.pop());
-    const counts = countsFromTiles(hand);
-    const results = evaluateDiscards(counts, doraIdx);
-    const poolSize = Math.random() < 0.7 ? 1 : Math.min(3, results.length);
-    const pick = results[Math.floor(Math.random() * poolSize)];
-    hand.splice(hand.indexOf(pick.tile), 1);
-  }
-  hand.push(wall.pop());
-  hand.sort((a, b) => a - b);
-
-  return { hand, doraIndicator, doraIdx, turnNo: turns + 1 };
-}
-
-/* ===================== UI ===================== */
+/* ===================== UI: 何切るクイズ ===================== */
 const $ = (id) => document.getElementById(id);
 let current = null;
 let answered = false;
@@ -389,11 +449,11 @@ function renderQuestion() {
 
 function tilesRow(tiles, capacity) {
   const shown = tiles.slice(0, capacity || tiles.length);
-  return shown.map((x) => `<span style="display:inline-flex; margin-right:2px;">${tileHTML(x.tile ?? x, 'mini')}<sub style="font-size:9px;color:#8fa39b;align-self:flex-end;">${x.remaining ? x.remaining : ''}</sub></span>`).join('');
+  return shown.map((x) => `<span style="display:inline-flex; margin-right:2px;">${tileHTML(x.tile ?? x, 'mini static')}<sub style="font-size:9px;color:#8fa39b;align-self:flex-end;">${x.remaining ? x.remaining : ''}</sub></span>`).join('');
 }
 
 function colHTML(discardTile, r, showValue) {
-  let html = `<div class="discard-tile">${tileHTML(discardTile, 'mini')}<span style="font-size:.72rem;color:var(--muted);">を切る</span></div>`;
+  let html = `<div class="discard-tile">${tileHTML(discardTile, 'mini static')}<span style="font-size:.72rem;color:var(--muted);">を切る</span></div>`;
   html += `<div class="stat-line">シャンテン数：<strong>${r.shanten < 0 ? '和了' : r.shanten}</strong></div>`;
   html += `<div class="stat-line">受け入れ：<strong>${r.ukeireTotal}枚</strong>（${r.ukeireTiles.length}種）</div>`;
   html += `<div class="ukeire-tiles">${tilesRow(r.ukeireTiles, 9)}</div>`;
@@ -440,8 +500,106 @@ function onDiscard(tile, el) {
   $('result').style.display = '';
 }
 
+/* ===================== UI: シャンテン数クイズ ===================== */
+const SHANTEN_BUCKETS = [0, 1, 2, 3, 4, 5, 6, '7+'];
+let shantenCurrent = null;
+let shantenAnswered = false;
+let shantenStats = { correct: 0, total: 0 };
+
+function buildAnswerButtons() {
+  const grid = $('shantenAnswerGrid');
+  SHANTEN_BUCKETS.forEach((val) => {
+    const b = document.createElement('button');
+    b.className = 'answer-btn';
+    b.dataset.val = val;
+    b.textContent = val === '7+' ? '7向聴+' : (val === 0 ? '聴牌' : val + '向聴');
+    b.addEventListener('click', () => onShantenAnswer(val, b));
+    grid.appendChild(b);
+  });
+}
+
+function answerLabel(n) { return n <= 0 ? '聴牌' : n + '向聴'; }
+
+function generateShantenQuestion() {
+  const turns = 3 + Math.floor(Math.random() * 9); // 3〜11巡。低シャンテンから高シャンテンまで幅を持たせる
+  const sim = simulateHand13(turns);
+  const hand = sim.hand;
+  const counts = countsFromTiles(hand);
+  const regular = regularShanten(counts.slice());
+  const chiitoi = chiitoiShanten(counts);
+  const kokushi = kokushiShanten(counts);
+  const best = Math.min(regular, chiitoi, kokushi);
+  const ukeire = ukeireForHand(counts.slice());
+  return { hand, regular, chiitoi, kokushi, best, ukeire };
+}
+
+function renderShantenQuestion() {
+  shantenCurrent = generateShantenQuestion();
+  shantenAnswered = false;
+  $('shantenResult').style.display = 'none';
+  $('shantenHint').style.display = '';
+  $('shantenHandRow').innerHTML = shantenCurrent.hand.map((t) => tileHTML(t, 'static')).join('');
+  document.querySelectorAll('#shantenAnswerGrid .answer-btn').forEach((btn) => {
+    btn.disabled = false;
+    btn.classList.remove('correct-answer', 'wrong-pick');
+  });
+}
+
+function onShantenAnswer(guess, btn) {
+  if (shantenAnswered) return;
+  shantenAnswered = true;
+  $('shantenHint').style.display = 'none';
+
+  const actual = shantenCurrent.best;
+  const actualBucket = actual <= 0 ? 0 : (actual >= 7 ? '7+' : actual);
+  const isCorrect = guess === actualBucket;
+
+  shantenStats.total++;
+  if (isCorrect) shantenStats.correct++;
+  $('shantenStatCorrect').textContent = shantenStats.correct;
+  $('shantenStatTotal').textContent = shantenStats.total;
+
+  document.querySelectorAll('#shantenAnswerGrid .answer-btn').forEach((b) => {
+    b.disabled = true;
+    const bVal = b.dataset.val === '7+' ? '7+' : Number(b.dataset.val);
+    if (bVal === actualBucket) b.classList.add('correct-answer');
+    if (b === btn && !isCorrect) b.classList.add('wrong-pick');
+  });
+
+  $('shantenVerdict').className = 'verdict ' + (isCorrect ? 'correct' : 'wrong');
+  $('shantenVerdict').textContent = isCorrect
+    ? `正解！ ${answerLabel(actual)}`
+    : `不正解（正解は${answerLabel(actual)}）`;
+
+  const c = shantenCurrent;
+  $('shantenBreakdown').innerHTML = `
+    <div class="stat-line">通常形：<strong>${answerLabel(c.regular)}</strong></div>
+    <div class="stat-line">七対子：<strong>${answerLabel(c.chiitoi)}</strong></div>
+    <div class="stat-line">国士無双：<strong>${answerLabel(c.kokushi)}</strong></div>
+  `;
+  $('shantenUkeire').innerHTML = c.ukeire.tiles.length
+    ? `<div class="stat-line">有効牌：<strong>${c.ukeire.total}枚</strong>（${c.ukeire.tiles.length}種）</div><div class="ukeire-tiles">${tilesRow(c.ukeire.tiles, 20)}</div>`
+    : '';
+
+  $('shantenResult').style.display = '';
+}
+
+/* ===================== タブ切替 ===================== */
+document.querySelectorAll('.tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
+    $('view-' + btn.dataset.mode).classList.add('active');
+  });
+});
+
+/* ===================== 初期化 ===================== */
 $('nextBtn').addEventListener('click', renderQuestion);
+$('shantenNextBtn').addEventListener('click', renderShantenQuestion);
+buildAnswerButtons();
 renderQuestion();
+renderShantenQuestion();
 </script>
 </body>
 </html>
